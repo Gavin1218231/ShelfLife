@@ -147,9 +147,7 @@ const App = (() => {
     defaultExp.setDate(defaultExp.getDate() + 7);
     document.getElementById('item-expiration-date').value = defaultExp.toISOString().split('T')[0];
 
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-
+    document.getElementById('btn-add-item').addEventListener('click', () => {
       const name = document.getElementById('item-name').value;
       const category = document.getElementById('item-category').value;
       const quantity = document.getElementById('item-quantity').value;
