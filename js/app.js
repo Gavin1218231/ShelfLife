@@ -173,8 +173,8 @@ const App = (() => {
       document.getElementById('item-expiration-date').value = newDefault.toISOString().split('T')[0];
       document.getElementById('item-quantity').value = '1';
 
-      // Focus on name field for quick entry
-      document.getElementById('item-name').focus();
+      // Navigate back to dashboard
+      switchTab('dashboard');
     });
   }
 
