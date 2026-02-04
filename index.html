@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shelf Life — Pantry Expiration Tracker</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1 class="logo">
+        <span class="logo-icon">&#x1F9CA;</span> Shelf Life
+      </h1>
+      <p class="tagline">Know what's fresh. Waste nothing.</p>
+    </div>
+  </header>
+
+  <nav id="main-nav">
+    <button class="nav-btn active" data-tab="dashboard">
+      <span class="nav-icon">&#9632;</span> Dashboard
+    </button>
+    <button class="nav-btn" data-tab="add-item">
+      <span class="nav-icon">&#43;</span> Add Item
+    </button>
+    <button class="nav-btn" data-tab="weekly-summary">
+      <span class="nav-icon">&#128197;</span> Weekly
+    </button>
+    <button class="nav-btn" data-tab="recipes">
+      <span class="nav-icon">&#127859;</span> Recipes
+    </button>
+  </nav>
+
+  <main id="app">
+    <!-- DASHBOARD TAB -->
+    <section id="tab-dashboard" class="tab-content active">
+      <div class="dashboard-header">
+        <h2>Your Pantry</h2>
+        <div class="dashboard-controls">
+          <div class="search-box">
+            <input type="text" id="search-input" placeholder="Search items...">
+          </div>
+          <select id="filter-category">
+            <option value="all">All Categories</option>
+            <option value="dairy">Dairy</option>
+            <option value="meat">Meat & Poultry</option>
+            <option value="seafood">Seafood</option>
+            <option value="produce">Produce</option>
+            <option value="grains">Grains & Bread</option>
+            <option value="canned">Canned Goods</option>
+            <option value="frozen">Frozen</option>
+            <option value="condiments">Condiments & Sauces</option>
+            <option value="beverages">Beverages</option>
+            <option value="snacks">Snacks</option>
+            <option value="other">Other</option>
+          </select>
+          <select id="sort-by">
+            <option value="expiration">Expiring Soonest</option>
+            <option value="name">Name (A-Z)</option>
+            <option value="category">Category</option>
+            <option value="added">Recently Added</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat" id="stat-total">
+          <span class="stat-num">0</span>
+          <span class="stat-label">Total Items</span>
+        </div>
+        <div class="stat stat-fresh" id="stat-fresh">
+          <span class="stat-num">0</span>
+          <span class="stat-label">Fresh</span>
+        </div>
+        <div class="stat stat-warning" id="stat-warning">
+          <span class="stat-num">0</span>
+          <span class="stat-label">Use Soon</span>
+        </div>
+        <div class="stat stat-danger" id="stat-danger">
+          <span class="stat-num">0</span>
+          <span class="stat-label">Expiring</span>
+        </div>
+        <div class="stat stat-expired" id="stat-expired">
+          <span class="stat-num">0</span>
+          <span class="stat-label">Expired</span>
+        </div>
+      </div>
+
+      <div id="items-grid" class="items-grid">
+        <div class="empty-state" id="empty-dashboard">
+          <div class="empty-icon">&#127858;</div>
+          <h3>Your pantry is empty</h3>
+          <p>Add items to start tracking expiration dates.</p>
+          <button class="btn btn-primary" onclick="App.switchTab('add-item')">Add Your First Item</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADD ITEM TAB -->
+    <section id="tab-add-item" class="tab-content">
+      <h2>Add Pantry Item</h2>
+
+      <div class="add-item-layout">
+        <form id="add-item-form" class="item-form">
+          <div class="form-group">
+            <label for="item-name">Item Name *</label>
+            <input type="text" id="item-name" required placeholder="e.g., Whole Milk" autocomplete="off">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="item-category">Category</label>
+              <select id="item-category">
+                <option value="dairy">Dairy</option>
+                <option value="meat">Meat & Poultry</option>
+                <option value="seafood">Seafood</option>
+                <option value="produce">Produce</option>
+                <option value="grains">Grains & Bread</option>
+                <option value="canned">Canned Goods</option>
+                <option value="frozen">Frozen</option>
+                <option value="condiments">Condiments & Sauces</option>
+                <option value="beverages">Beverages</option>
+                <option value="snacks">Snacks</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="item-quantity">Quantity</label>
+              <input type="number" id="item-quantity" value="1" min="1" max="999">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="item-purchase-date">Purchase Date</label>
+              <input type="date" id="item-purchase-date">
+            </div>
+            <div class="form-group">
+              <label for="item-expiration-date">Expiration Date *</label>
+              <input type="date" id="item-expiration-date" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="item-notes">Notes</label>
+            <input type="text" id="item-notes" placeholder="e.g., Opened on Monday">
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Add Item</button>
+            <button type="reset" class="btn btn-secondary">Clear</button>
+          </div>
+        </form>
+
+        <div class="scanner-section">
+          <h3>Scan Barcode</h3>
+          <p class="scanner-desc">Use your camera to scan a product barcode and auto-populate item details.</p>
+          <div id="scanner-container" class="scanner-container">
+            <div id="scanner-viewport" class="scanner-viewport"></div>
+            <div id="scanner-overlay" class="scanner-overlay hidden">
+              <div class="scan-region"></div>
+            </div>
+          </div>
+          <div class="scanner-controls">
+            <button type="button" class="btn btn-accent" id="btn-start-scan">
+              <span>&#128247;</span> Start Scanner
+            </button>
+            <button type="button" class="btn btn-secondary hidden" id="btn-stop-scan">
+              Stop Scanner
+            </button>
+          </div>
+          <div id="scanner-result" class="scanner-result hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WEEKLY SUMMARY TAB -->
+    <section id="tab-weekly-summary" class="tab-content">
+      <div class="weekly-header">
+        <h2>Use It or Lose It</h2>
+        <p class="weekly-subtitle">Items expiring in the next 7 days — prioritize these!</p>
+      </div>
+
+      <div id="weekly-content">
+        <div class="empty-state" id="empty-weekly">
+          <div class="empty-icon">&#127881;</div>
+          <h3>Nothing expiring this week!</h3>
+          <p>All your items are fresh. Check back later.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- RECIPES TAB -->
+    <section id="tab-recipes" class="tab-content">
+      <div class="recipes-header">
+        <h2>Recipe Suggestions</h2>
+        <p class="recipes-subtitle">Recipes based on items expiring soon — reduce waste deliciously!</p>
+      </div>
+
+      <div id="recipe-ingredients" class="recipe-ingredients"></div>
+      <div id="recipes-content" class="recipes-grid">
+        <div class="empty-state" id="empty-recipes">
+          <div class="empty-icon">&#127859;</div>
+          <h3>No expiring items to cook with</h3>
+          <p>Add items with expiration dates to get recipe suggestions.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Edit Item Modal -->
+  <div id="edit-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Edit Item</h3>
+        <button class="modal-close" id="modal-close">&times;</button>
+      </div>
+      <form id="edit-item-form">
+        <input type="hidden" id="edit-item-id">
+        <div class="form-group">
+          <label for="edit-name">Item Name *</label>
+          <input type="text" id="edit-name" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-category">Category</label>
+            <select id="edit-category">
+              <option value="dairy">Dairy</option>
+              <option value="meat">Meat & Poultry</option>
+              <option value="seafood">Seafood</option>
+              <option value="produce">Produce</option>
+              <option value="grains">Grains & Bread</option>
+              <option value="canned">Canned Goods</option>
+              <option value="frozen">Frozen</option>
+              <option value="condiments">Condiments & Sauces</option>
+              <option value="beverages">Beverages</option>
+              <option value="snacks">Snacks</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="edit-quantity">Quantity</label>
+            <input type="number" id="edit-quantity" min="1" max="999">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="edit-purchase-date">Purchase Date</label>
+            <input type="date" id="edit-purchase-date">
+          </div>
+          <div class="form-group">
+            <label for="edit-expiration-date">Expiration Date *</label>
+            <input type="date" id="edit-expiration-date" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="edit-notes">Notes</label>
+          <input type="text" id="edit-notes">
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Save Changes</button>
+          <button type="button" class="btn btn-danger" id="btn-delete-item">Delete Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Recipe Detail Modal -->
+  <div id="recipe-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h3 id="recipe-modal-title">Recipe</h3>
+        <button class="modal-close" id="recipe-modal-close">&times;</button>
+      </div>
+      <div id="recipe-modal-body" class="recipe-modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="js/store.js"></script>
+  <script src="js/scanner.js"></script>
+  <script src="js/recipes.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
