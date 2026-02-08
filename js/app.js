@@ -138,14 +138,17 @@ const App = (() => {
   function initAddItemForm() {
     const form = document.getElementById('add-item-form');
 
-    // Set default dates
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('item-purchase-date').value = today;
+    // Set default dates (computed fresh each time)
+    function setDefaultDates() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('item-purchase-date').value = today;
 
-    // Default expiration to 7 days from now
-    const defaultExp = new Date();
-    defaultExp.setDate(defaultExp.getDate() + 7);
-    document.getElementById('item-expiration-date').value = defaultExp.toISOString().split('T')[0];
+      const defaultExp = new Date();
+      defaultExp.setDate(defaultExp.getDate() + 7);
+      document.getElementById('item-expiration-date').value = defaultExp.toISOString().split('T')[0];
+    }
+
+    setDefaultDates();
 
     document.getElementById('btn-add-item').addEventListener('click', () => {
       const name = document.getElementById('item-name').value;
@@ -163,12 +166,9 @@ const App = (() => {
       Store.addItem({ name, category, quantity, purchaseDate, expirationDate, notes });
       showToast(`"${name}" added to your pantry!`, 'success');
 
-      // Reset form but keep defaults
+      // Reset form and refresh defaults
       form.reset();
-      document.getElementById('item-purchase-date').value = today;
-      const newDefault = new Date();
-      newDefault.setDate(newDefault.getDate() + 7);
-      document.getElementById('item-expiration-date').value = newDefault.toISOString().split('T')[0];
+      setDefaultDates();
       document.getElementById('item-quantity').value = '1';
 
       // Navigate back to dashboard
@@ -383,7 +383,8 @@ const App = (() => {
       return;
     }
 
-    // Render ingredient chips
+    // Render ingredient chips - filter out stale ingredients no longer in pantry
+    activeIngredients = activeIngredients.filter(ing => ingredients.includes(ing));
     if (activeIngredients.length === 0) {
       activeIngredients = [...ingredients];
     }
@@ -557,7 +558,6 @@ const App = (() => {
   return {
     switchTab,
     openEditModal,
-    toggleIngredient,
     openRecipeDetail,
     showToast,
   };
