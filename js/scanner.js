@@ -127,9 +127,9 @@ const Scanner = (() => {
     if (/milk|cheese|yogurt|butter|cream|dairy/.test(combined)) return 'dairy';
     if (/meat|chicken|beef|pork|turkey|sausage|ham/.test(combined)) return 'meat';
     if (/fish|seafood|shrimp|salmon|tuna/.test(combined)) return 'seafood';
+    if (/canned|can |soup/.test(combined)) return 'canned';
     if (/fruit|vegetable|produce|salad|lettuce|tomato|apple|banana/.test(combined)) return 'produce';
     if (/bread|grain|pasta|rice|cereal|flour|wheat/.test(combined)) return 'grains';
-    if (/canned|can |soup/.test(combined)) return 'canned';
     if (/frozen|ice cream/.test(combined)) return 'frozen';
     if (/sauce|condiment|ketchup|mustard|mayo|dressing|oil|vinegar/.test(combined)) return 'condiments';
     if (/beverage|drink|juice|soda|water|tea|coffee/.test(combined)) return 'beverages';
