@@ -2,6 +2,9 @@
  * App — Main application controller for Shelf Life.
  */
 const App = (() => {
+  // ===== State =====
+  let viewMode = 'grid';
+
   // ===== Tab Navigation =====
   function switchTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -35,13 +38,46 @@ const App = (() => {
     setTimeout(() => toast.remove(), 3000);
   }
 
+  // ===== Populate Dropdowns =====
+  function populateDropdowns() {
+    const defaultLocation = Config.getSetting('defaultLocation');
+    const defaultUnit = Config.getSetting('defaultUnit');
+
+    // Add item form
+    document.getElementById('item-location').innerHTML = Config.getLocationOptions(defaultLocation);
+    document.getElementById('item-category').innerHTML = Config.getCategoryOptions('dairy');
+    document.getElementById('item-unit').innerHTML = Config.getUnitOptions(defaultUnit);
+
+    // Edit modal
+    document.getElementById('edit-location').innerHTML = Config.getLocationOptions();
+    document.getElementById('edit-category').innerHTML = Config.getCategoryOptions();
+    document.getElementById('edit-unit').innerHTML = Config.getUnitOptions();
+
+    // Filter dropdowns
+    const filterLocation = document.getElementById('filter-location');
+    filterLocation.innerHTML = '<option value="all">All Locations</option>' +
+      Object.entries(Config.LOCATIONS).map(([k, v]) =>
+        `<option value="${k}">${v.label}</option>`).join('');
+
+    const filterCategory = document.getElementById('filter-category');
+    filterCategory.innerHTML = '<option value="all">All Categories</option>' +
+      Object.entries(Config.CATEGORIES).map(([k, v]) =>
+        `<option value="${k}">${v.label}</option>`).join('');
+
+    // Settings dropdowns
+    document.getElementById('setting-default-location').innerHTML = Config.getLocationOptions(defaultLocation);
+    document.getElementById('setting-default-unit').innerHTML = Config.getUnitOptions(defaultUnit);
+  }
+
   // ===== Dashboard Rendering =====
   function renderDashboard() {
     const items = Store.getAll();
     const stats = Store.getStats();
     const searchTerm = document.getElementById('search-input').value.toLowerCase();
     const filterCat = document.getElementById('filter-category').value;
+    const filterLoc = document.getElementById('filter-location').value;
     const sortBy = document.getElementById('sort-by').value;
+    const showExpired = Config.getSetting('showExpiredItems');
 
     // Update stats
     document.querySelector('#stat-total .stat-num').textContent = stats.total;
@@ -52,9 +88,12 @@ const App = (() => {
 
     // Filter
     let filtered = items.filter(item => {
-      const matchesSearch = !searchTerm || item.name.toLowerCase().includes(searchTerm);
+      if (!showExpired && Store.getStatus(item.expirationDate) === 'expired') return false;
+      const matchesSearch = !searchTerm || item.name.toLowerCase().includes(searchTerm) ||
+        (item.notes && item.notes.toLowerCase().includes(searchTerm));
       const matchesCat = filterCat === 'all' || item.category === filterCat;
-      return matchesSearch && matchesCat;
+      const matchesLoc = filterLoc === 'all' || item.location === filterLoc;
+      return matchesSearch && matchesCat && matchesLoc;
     });
 
     // Sort
@@ -65,15 +104,22 @@ const App = (() => {
         case 'name':
           return a.name.localeCompare(b.name);
         case 'category':
-          return a.category.localeCompare(b.category);
+          return (a.category || '').localeCompare(b.category || '');
+        case 'location':
+          return (a.location || '').localeCompare(b.location || '');
         case 'added':
           return new Date(b.createdAt) - new Date(a.createdAt);
+        case 'purchased':
+          return new Date(b.purchaseDate || 0) - new Date(a.purchaseDate || 0);
+        case 'quantity':
+          return (b.quantity || 0) - (a.quantity || 0);
         default:
           return 0;
       }
     });
 
     const grid = document.getElementById('items-grid');
+    grid.className = viewMode === 'list' ? 'items-list' : 'items-grid';
 
     if (filtered.length === 0) {
       if (items.length === 0) {
@@ -89,56 +135,94 @@ const App = (() => {
           <div class="empty-state">
             <div class="empty-icon">&#128269;</div>
             <h3>No items match your filters</h3>
-            <p>Try adjusting your search or category filter.</p>
+            <p>Try adjusting your search or filters.</p>
           </div>`;
       }
       return;
     }
 
-    grid.innerHTML = filtered.map(item => {
-      const status = Store.getStatus(item.expirationDate);
-      const days = Store.daysUntilExpiration(item.expirationDate);
-      let expiryText;
+    grid.innerHTML = filtered.map(item => renderItemCard(item)).join('');
+  }
 
-      if (days < 0) {
-        expiryText = `Expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''} ago`;
-      } else if (days === 0) {
-        expiryText = 'Expires today!';
-      } else if (days === 1) {
-        expiryText = 'Expires tomorrow';
-      } else {
-        expiryText = `${days} days left`;
-      }
+  function renderItemCard(item) {
+    const status = Store.getStatus(item.expirationDate);
+    const days = Store.daysUntilExpiration(item.expirationDate);
+    let expiryText;
 
-      const categoryLabels = {
-        dairy: 'Dairy', meat: 'Meat & Poultry', seafood: 'Seafood',
-        produce: 'Produce', grains: 'Grains & Bread', canned: 'Canned Goods',
-        frozen: 'Frozen', condiments: 'Condiments', beverages: 'Beverages',
-        snacks: 'Snacks', other: 'Other'
-      };
+    if (days < 0) {
+      expiryText = `Expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''} ago`;
+    } else if (days === 0) {
+      expiryText = 'Expires today!';
+    } else if (days === 1) {
+      expiryText = 'Expires tomorrow';
+    } else {
+      expiryText = `${days} days left`;
+    }
 
+    const categoryLabel = Config.getCategoryLabel(item.category);
+    const locationLabel = Config.getLocationLabel(item.location);
+    const unitAbbr = Config.getUnitAbbr(item.unit || 'pieces');
+    const qtyDisplay = item.quantity !== 1 ? `${item.quantity} ${unitAbbr}` : '';
+
+    if (viewMode === 'list') {
       return `
-        <div class="item-card status-${status}" onclick="App.openEditModal('${item.id}')">
-          <div class="item-card-header">
-            <span class="item-name">${escapeHtml(item.name)}</span>
-            <span class="item-category-badge">${categoryLabels[item.category] || item.category}</span>
+        <div class="item-row status-${status}" onclick="App.openEditModal('${item.id}')">
+          <div class="item-row-name">${escapeHtml(item.name)}</div>
+          <div class="item-row-meta">
+            <span class="item-location-badge">${locationLabel}</span>
+            <span class="item-category-badge">${categoryLabel}</span>
           </div>
-          <div class="item-meta">
-            <span>Expires: ${formatDate(item.expirationDate)}</span>
-            ${item.purchaseDate ? `<span>Purchased: ${formatDate(item.purchaseDate)}</span>` : ''}
-            ${item.notes ? `<span>${escapeHtml(item.notes)}</span>` : ''}
-          </div>
-          ${item.quantity > 1 ? `<span class="item-quantity">x${item.quantity}</span>` : ''}
-          <div class="item-expiry-label">${expiryText}</div>
+          <div class="item-row-qty">${qtyDisplay}</div>
+          <div class="item-row-expiry item-expiry-label">${expiryText}</div>
         </div>`;
-    }).join('');
+    }
+
+    return `
+      <div class="item-card status-${status}" onclick="App.openEditModal('${item.id}')">
+        <div class="item-card-header">
+          <span class="item-name">${escapeHtml(item.name)}</span>
+          <span class="item-category-badge">${categoryLabel}</span>
+        </div>
+        <div class="item-meta">
+          <span class="item-location-badge">${locationLabel}</span>
+          <span>Expires: ${formatDate(item.expirationDate)}</span>
+          ${item.purchaseDate ? `<span>Purchased: ${formatDate(item.purchaseDate)}</span>` : ''}
+          ${item.notes ? `<span>${escapeHtml(item.notes)}</span>` : ''}
+        </div>
+        ${qtyDisplay ? `<span class="item-quantity">${qtyDisplay}</span>` : ''}
+        <div class="item-expiry-label">${expiryText}</div>
+      </div>`;
+  }
+
+  // ===== View Mode Toggle =====
+  function initViewToggle() {
+    viewMode = Config.getSetting('viewMode');
+    updateViewButtons();
+
+    document.getElementById('btn-grid-view').addEventListener('click', () => {
+      viewMode = 'grid';
+      Config.setSetting('viewMode', 'grid');
+      updateViewButtons();
+      renderDashboard();
+    });
+
+    document.getElementById('btn-list-view').addEventListener('click', () => {
+      viewMode = 'list';
+      Config.setSetting('viewMode', 'list');
+      updateViewButtons();
+      renderDashboard();
+    });
+  }
+
+  function updateViewButtons() {
+    document.getElementById('btn-grid-view').classList.toggle('active', viewMode === 'grid');
+    document.getElementById('btn-list-view').classList.toggle('active', viewMode === 'list');
   }
 
   // ===== Add Item Form =====
   function initAddItemForm() {
     const form = document.getElementById('add-item-form');
 
-    // Set default dates (computed fresh each time)
     function setDefaultDates() {
       const today = new Date().toISOString().split('T')[0];
       document.getElementById('item-purchase-date').value = today;
@@ -152,8 +236,11 @@ const App = (() => {
 
     document.getElementById('btn-add-item').addEventListener('click', () => {
       const name = document.getElementById('item-name').value;
+      const location = document.getElementById('item-location').value;
       const category = document.getElementById('item-category').value;
       const quantity = document.getElementById('item-quantity').value;
+      const unit = document.getElementById('item-unit').value;
+      const price = document.getElementById('item-price').value;
       const purchaseDate = document.getElementById('item-purchase-date').value;
       const expirationDate = document.getElementById('item-expiration-date').value;
       const notes = document.getElementById('item-notes').value;
@@ -163,15 +250,15 @@ const App = (() => {
         return;
       }
 
-      Store.addItem({ name, category, quantity, purchaseDate, expirationDate, notes });
+      Store.addItem({ name, location, category, quantity, unit, price, purchaseDate, expirationDate, notes });
       showToast(`"${name}" added to your pantry!`, 'success');
 
-      // Reset form and refresh defaults
       form.reset();
       setDefaultDates();
       document.getElementById('item-quantity').value = '1';
+      document.getElementById('item-location').value = Config.getSetting('defaultLocation');
+      document.getElementById('item-unit').value = Config.getSetting('defaultUnit');
 
-      // Navigate back to dashboard
       switchTab('dashboard');
     });
   }
@@ -183,8 +270,11 @@ const App = (() => {
 
     document.getElementById('edit-item-id').value = item.id;
     document.getElementById('edit-name').value = item.name;
-    document.getElementById('edit-category').value = item.category;
-    document.getElementById('edit-quantity').value = item.quantity;
+    document.getElementById('edit-location').value = item.location || 'fridge';
+    document.getElementById('edit-category').value = item.category || 'other';
+    document.getElementById('edit-quantity').value = item.quantity || 1;
+    document.getElementById('edit-unit').value = item.unit || 'pieces';
+    document.getElementById('edit-price').value = item.price || '';
     document.getElementById('edit-purchase-date').value = item.purchaseDate || '';
     document.getElementById('edit-expiration-date').value = item.expirationDate;
     document.getElementById('edit-notes').value = item.notes || '';
@@ -206,8 +296,11 @@ const App = (() => {
       const id = document.getElementById('edit-item-id').value;
       const updates = {
         name: document.getElementById('edit-name').value,
+        location: document.getElementById('edit-location').value,
         category: document.getElementById('edit-category').value,
-        quantity: parseInt(document.getElementById('edit-quantity').value, 10),
+        quantity: parseFloat(document.getElementById('edit-quantity').value) || 1,
+        unit: document.getElementById('edit-unit').value,
+        price: document.getElementById('edit-price').value || null,
         purchaseDate: document.getElementById('edit-purchase-date').value || null,
         expirationDate: document.getElementById('edit-expiration-date').value,
         notes: document.getElementById('edit-notes').value,
@@ -260,10 +353,12 @@ const App = (() => {
           resultDiv.classList.remove('hidden');
           resultDiv.classList.add('error');
         } else {
-          // Auto-populate form fields
           document.getElementById('item-name').value = result.name;
           if (result.category) {
             document.getElementById('item-category').value = result.category;
+          }
+          if (result.location) {
+            document.getElementById('item-location').value = result.location;
           }
 
           resultDiv.innerHTML = `
@@ -351,9 +446,9 @@ const App = (() => {
               <div class="weekly-item" onclick="App.openEditModal('${item.id}')">
                 <div>
                   <span class="weekly-item-name">${escapeHtml(item.name)}</span>
-                  <span class="weekly-item-cat">${item.category}</span>
+                  <span class="weekly-item-loc">${Config.getLocationLabel(item.location)}</span>
                 </div>
-                <span class="weekly-item-qty">${item.quantity > 1 ? 'x' + item.quantity : ''}</span>
+                <span class="weekly-item-qty">${item.quantity > 1 ? item.quantity + ' ' + Config.getUnitAbbr(item.unit) : ''}</span>
               </div>
             `).join('')}
           </div>
@@ -383,7 +478,6 @@ const App = (() => {
       return;
     }
 
-    // Render ingredient chips - filter out stale ingredients no longer in pantry
     activeIngredients = activeIngredients.filter(ing => ingredients.includes(ing));
     if (activeIngredients.length === 0) {
       activeIngredients = [...ingredients];
@@ -396,7 +490,6 @@ const App = (() => {
                     data-ingredient="${safeIng}">${escapeHtml(ing)}</span>`;
     }).join('');
 
-    // Bind chip click events via delegation
     chipsContainer.querySelectorAll('.ingredient-chip').forEach(chip => {
       chip.addEventListener('click', () => {
         toggleIngredient(chip.dataset.ingredient);
@@ -413,7 +506,6 @@ const App = (() => {
       return;
     }
 
-    // Show loading
     recipesContainer.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
     const meals = await Recipes.searchMultipleIngredients(activeIngredients);
@@ -428,7 +520,6 @@ const App = (() => {
       return;
     }
 
-    // Show top 12 results
     recipesContainer.innerHTML = meals.slice(0, 12).map(meal => `
       <div class="recipe-card" onclick="App.openRecipeDetail('${meal.id}')">
         <img src="${meal.thumb}/preview" alt="${escapeHtml(meal.name)}" loading="lazy">
@@ -504,12 +595,143 @@ const App = (() => {
     document.querySelector('#recipe-modal .modal-backdrop').addEventListener('click', closeRecipeModal);
   }
 
+  // ===== Settings Modal =====
+  function initSettingsModal() {
+    const modal = document.getElementById('settings-modal');
+    const closeBtn = document.getElementById('settings-modal-close');
+
+    document.getElementById('btn-settings').addEventListener('click', () => {
+      loadSettingsUI();
+      modal.classList.remove('hidden');
+    });
+
+    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+    modal.querySelector('.modal-backdrop').addEventListener('click', () => modal.classList.add('hidden'));
+
+    // Theme toggle
+    document.querySelectorAll('[data-theme]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const theme = btn.dataset.theme;
+        setTheme(theme);
+        document.querySelectorAll('[data-theme]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    // Settings changes
+    document.getElementById('setting-view-mode').addEventListener('change', e => {
+      Config.setSetting('viewMode', e.target.value);
+      viewMode = e.target.value;
+      updateViewButtons();
+      renderDashboard();
+    });
+
+    document.getElementById('setting-compact-view').addEventListener('change', e => {
+      Config.setSetting('compactView', e.target.checked);
+      document.body.classList.toggle('compact-view', e.target.checked);
+    });
+
+    document.getElementById('setting-default-location').addEventListener('change', e => {
+      Config.setSetting('defaultLocation', e.target.value);
+    });
+
+    document.getElementById('setting-default-unit').addEventListener('change', e => {
+      Config.setSetting('defaultUnit', e.target.value);
+    });
+
+    document.getElementById('setting-notify-days').addEventListener('change', e => {
+      Config.setSetting('notifyDaysBefore', parseInt(e.target.value, 10));
+    });
+
+    document.getElementById('setting-show-expired').addEventListener('change', e => {
+      Config.setSetting('showExpiredItems', e.target.checked);
+      renderDashboard();
+    });
+
+    // Export buttons
+    document.getElementById('btn-export-json').addEventListener('click', () => {
+      downloadFile('shelflife-export.json', Store.exportJSON(), 'application/json');
+      showToast('Data exported as JSON', 'success');
+    });
+
+    document.getElementById('btn-export-csv').addEventListener('click', () => {
+      downloadFile('shelflife-export.csv', Store.exportCSV(), 'text/csv');
+      showToast('Data exported as CSV', 'success');
+    });
+
+    // Import
+    const fileInput = document.getElementById('file-import');
+    document.getElementById('btn-import').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      try {
+        const text = await file.text();
+        let count = 0;
+        if (file.name.endsWith('.json')) {
+          count = Store.importJSON(text);
+        } else if (file.name.endsWith('.csv')) {
+          count = Store.importCSV(text);
+        } else {
+          throw new Error('Unsupported file type');
+        }
+        showToast(`Imported ${count} items`, 'success');
+        renderDashboard();
+      } catch (err) {
+        showToast('Import failed: ' + err.message, 'error');
+      }
+      fileInput.value = '';
+    });
+
+    // Clear all data
+    document.getElementById('btn-clear-data').addEventListener('click', () => {
+      if (confirm('Delete ALL pantry items? This cannot be undone.')) {
+        Store.deleteAll();
+        showToast('All data cleared', 'warning');
+        renderDashboard();
+      }
+    });
+  }
+
+  function loadSettingsUI() {
+    const settings = Config.loadSettings();
+    document.querySelectorAll('[data-theme]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.theme === settings.theme);
+    });
+    document.getElementById('setting-view-mode').value = settings.viewMode;
+    document.getElementById('setting-compact-view').checked = settings.compactView;
+    document.getElementById('setting-default-location').value = settings.defaultLocation;
+    document.getElementById('setting-default-unit').value = settings.defaultUnit;
+    document.getElementById('setting-notify-days').value = settings.notifyDaysBefore;
+    document.getElementById('setting-show-expired').checked = settings.showExpiredItems;
+  }
+
+  function setTheme(theme) {
+    Config.setSetting('theme', theme);
+    document.body.className = 'theme-' + theme;
+    if (Config.getSetting('compactView')) {
+      document.body.classList.add('compact-view');
+    }
+  }
+
+  function downloadFile(filename, content, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   // ===== Keyboard Shortcuts =====
   function initKeyboard() {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         closeEditModal();
         closeRecipeModal();
+        document.getElementById('settings-modal').classList.add('hidden');
       }
     });
   }
@@ -536,25 +758,34 @@ const App = (() => {
   function initDashboardFilters() {
     document.getElementById('search-input').addEventListener('input', renderDashboard);
     document.getElementById('filter-category').addEventListener('change', renderDashboard);
+    document.getElementById('filter-location').addEventListener('change', renderDashboard);
     document.getElementById('sort-by').addEventListener('change', renderDashboard);
   }
 
   // ===== Initialize App =====
   function init() {
+    // Apply saved theme
+    const theme = Config.getSetting('theme');
+    document.body.className = 'theme-' + theme;
+    if (Config.getSetting('compactView')) {
+      document.body.classList.add('compact-view');
+    }
+
+    populateDropdowns();
     initNavigation();
+    initViewToggle();
     initAddItemForm();
     initEditModal();
     initRecipeModal();
+    initSettingsModal();
     initScanner();
     initKeyboard();
     initDashboardFilters();
     renderDashboard();
   }
 
-  // Boot up
   document.addEventListener('DOMContentLoaded', init);
 
-  // Public API
   return {
     switchTab,
     openEditModal,

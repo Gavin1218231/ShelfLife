@@ -24,6 +24,46 @@
   --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
+/* ===== Light Theme ===== */
+.theme-light {
+  --color-bg: #f5f5f7;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f0f0f2;
+  --color-border: #e0e0e4;
+  --color-text: #1a1a2e;
+  --color-text-muted: #6b6b80;
+  --color-primary: #6c63ff;
+  --color-primary-hover: #5a52d5;
+  --color-fresh-bg: rgba(34, 197, 94, 0.1);
+  --color-warning-bg: rgba(245, 158, 11, 0.1);
+  --color-danger-bg: rgba(239, 68, 68, 0.1);
+  --color-expired-bg: rgba(107, 114, 128, 0.1);
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+.theme-light header {
+  background: linear-gradient(135deg, #ffffff 0%, #f0f0f5 100%);
+}
+
+.theme-light ::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+.theme-light ::-webkit-scrollbar-thumb {
+  background: #c8c8d0;
+}
+
+/* ===== Dark Theme (default) ===== */
+.theme-dark {
+  --color-bg: #0f1117;
+  --color-surface: #1a1d27;
+  --color-surface-hover: #22262f;
+  --color-border: #2a2e3a;
+  --color-text: #e4e6eb;
+  --color-text-muted: #8b8fa3;
+  --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
 /* ===== Reset & Base ===== */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -46,11 +86,36 @@ header {
   border-bottom: 1px solid var(--color-border);
   padding: 1.5rem 2rem;
   text-align: center;
+  position: relative;
 }
 
 .header-inner {
   max-width: 1200px;
   margin: 0 auto;
+}
+
+.header-btn {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.5rem;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 1.3rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-btn:hover {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
 }
 
 .logo {
@@ -921,6 +986,265 @@ main {
   to { opacity: 0; transform: translateX(100%); }
 }
 
+/* ===== Dashboard Title Row & View Toggle ===== */
+.dashboard-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem;
+}
+
+.view-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 1.1rem;
+  width: 34px;
+  height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.view-btn:hover {
+  color: var(--color-text);
+}
+
+.view-btn.active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* ===== List View ===== */
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.item-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 1rem;
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1.25rem;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+}
+
+.item-row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.item-row.status-fresh::before { background: var(--color-fresh); }
+.item-row.status-warning::before { background: var(--color-warning); }
+.item-row.status-danger::before { background: var(--color-danger); }
+.item-row.status-expired::before { background: var(--color-expired); }
+
+.item-row:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-primary);
+}
+
+.item-row-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.item-row-meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.item-row-qty {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  min-width: 60px;
+  text-align: right;
+}
+
+.item-row-expiry {
+  min-width: 120px;
+  text-align: right;
+  font-size: 0.8rem;
+}
+
+/* ===== Location Badge ===== */
+.item-location-badge {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 20px;
+  background: rgba(0, 201, 167, 0.12);
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+/* ===== Form Row 3-column ===== */
+.form-row-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* ===== Weekly Item Location ===== */
+.weekly-item-loc {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-left: 0.5rem;
+}
+
+/* ===== Settings Modal ===== */
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.settings-section {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 1.25rem;
+}
+
+.settings-section:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.settings-section h4 {
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+  color: var(--color-text);
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  gap: 1rem;
+}
+
+.setting-row label {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.setting-row select {
+  padding: 0.4rem 0.75rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.setting-row select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.setting-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.setting-row-danger {
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+
+/* ===== Toggle Group (Theme Toggle) ===== */
+.toggle-group {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.2rem;
+}
+
+.toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  padding: 0.35rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-family: var(--font);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.toggle-btn:hover {
+  color: var(--color-text);
+}
+
+.toggle-btn.active {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* ===== Button Group & Small Buttons ===== */
+.btn-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-sm {
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8rem;
+}
+
+/* ===== Compact View ===== */
+.compact-view .item-card {
+  padding: 0.85rem;
+}
+
+.compact-view .item-card-header {
+  margin-bottom: 0.25rem;
+}
+
+.compact-view .item-name {
+  font-size: 0.9rem;
+}
+
+.compact-view .item-meta {
+  font-size: 0.8rem;
+}
+
+.compact-view .items-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.65rem;
+}
+
 /* ===== Utilities ===== */
 .hidden {
   display: none !important;
@@ -1001,6 +1325,41 @@ main {
 
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .form-row-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .item-row {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+
+  .item-row-meta {
+    order: 2;
+  }
+
+  .item-row-qty {
+    text-align: left;
+    min-width: auto;
+  }
+
+  .item-row-expiry {
+    text-align: left;
+    min-width: auto;
+  }
+
+  .view-toggle {
+    display: none;
+  }
+
+  .header-btn {
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 34px;
+    height: 34px;
+    font-size: 1.1rem;
   }
 
   .dashboard-controls {

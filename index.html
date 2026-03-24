@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="css/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
 </head>
-<body>
+<body class="theme-dark">
   <header>
     <div class="header-inner">
       <h1 class="logo">
@@ -15,6 +15,7 @@
       </h1>
       <p class="tagline">Know what's fresh. Waste nothing.</p>
     </div>
+    <button id="btn-settings" class="header-btn" title="Settings">&#9881;</button>
   </header>
 
   <nav id="main-nav">
@@ -36,30 +37,31 @@
     <!-- DASHBOARD TAB -->
     <section id="tab-dashboard" class="tab-content active">
       <div class="dashboard-header">
-        <h2>Your Pantry</h2>
+        <div class="dashboard-title-row">
+          <h2>Your Pantry</h2>
+          <div class="view-toggle">
+            <button id="btn-grid-view" class="view-btn active" title="Grid View">&#9638;</button>
+            <button id="btn-list-view" class="view-btn" title="List View">&#9776;</button>
+          </div>
+        </div>
         <div class="dashboard-controls">
           <div class="search-box">
             <input type="text" id="search-input" placeholder="Search items...">
           </div>
+          <select id="filter-location">
+            <option value="all">All Locations</option>
+          </select>
           <select id="filter-category">
             <option value="all">All Categories</option>
-            <option value="dairy">Dairy</option>
-            <option value="meat">Meat & Poultry</option>
-            <option value="seafood">Seafood</option>
-            <option value="produce">Produce</option>
-            <option value="grains">Grains & Bread</option>
-            <option value="canned">Canned Goods</option>
-            <option value="frozen">Frozen</option>
-            <option value="condiments">Condiments & Sauces</option>
-            <option value="beverages">Beverages</option>
-            <option value="snacks">Snacks</option>
-            <option value="other">Other</option>
           </select>
           <select id="sort-by">
             <option value="expiration">Expiring Soonest</option>
             <option value="name">Name (A-Z)</option>
             <option value="category">Category</option>
+            <option value="location">Location</option>
             <option value="added">Recently Added</option>
+            <option value="purchased">Recently Purchased</option>
+            <option value="quantity">Quantity</option>
           </select>
         </div>
       </div>
@@ -110,24 +112,27 @@
 
           <div class="form-row">
             <div class="form-group">
-              <label for="item-category">Category</label>
-              <select id="item-category">
-                <option value="dairy">Dairy</option>
-                <option value="meat">Meat & Poultry</option>
-                <option value="seafood">Seafood</option>
-                <option value="produce">Produce</option>
-                <option value="grains">Grains & Bread</option>
-                <option value="canned">Canned Goods</option>
-                <option value="frozen">Frozen</option>
-                <option value="condiments">Condiments & Sauces</option>
-                <option value="beverages">Beverages</option>
-                <option value="snacks">Snacks</option>
-                <option value="other">Other</option>
-              </select>
+              <label for="item-location">Storage Location</label>
+              <select id="item-location"></select>
             </div>
             <div class="form-group">
+              <label for="item-category">Category</label>
+              <select id="item-category"></select>
+            </div>
+          </div>
+
+          <div class="form-row form-row-3">
+            <div class="form-group">
               <label for="item-quantity">Quantity</label>
-              <input type="number" id="item-quantity" value="1" min="1" max="999">
+              <input type="number" id="item-quantity" value="1" min="0.01" step="0.01" max="9999">
+            </div>
+            <div class="form-group">
+              <label for="item-unit">Unit</label>
+              <select id="item-unit"></select>
+            </div>
+            <div class="form-group">
+              <label for="item-price">Price ($)</label>
+              <input type="number" id="item-price" min="0" step="0.01" placeholder="Optional">
             </div>
           </div>
 
@@ -144,7 +149,7 @@
 
           <div class="form-group">
             <label for="item-notes">Notes</label>
-            <input type="text" id="item-notes" placeholder="e.g., Opened on Monday">
+            <input type="text" id="item-notes" placeholder="e.g., Opened on Monday, organic, brand name">
           </div>
 
           <div class="form-actions">
@@ -225,24 +230,26 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="edit-category">Category</label>
-            <select id="edit-category">
-              <option value="dairy">Dairy</option>
-              <option value="meat">Meat & Poultry</option>
-              <option value="seafood">Seafood</option>
-              <option value="produce">Produce</option>
-              <option value="grains">Grains & Bread</option>
-              <option value="canned">Canned Goods</option>
-              <option value="frozen">Frozen</option>
-              <option value="condiments">Condiments & Sauces</option>
-              <option value="beverages">Beverages</option>
-              <option value="snacks">Snacks</option>
-              <option value="other">Other</option>
-            </select>
+            <label for="edit-location">Storage Location</label>
+            <select id="edit-location"></select>
           </div>
           <div class="form-group">
+            <label for="edit-category">Category</label>
+            <select id="edit-category"></select>
+          </div>
+        </div>
+        <div class="form-row form-row-3">
+          <div class="form-group">
             <label for="edit-quantity">Quantity</label>
-            <input type="number" id="edit-quantity" min="1" max="999">
+            <input type="number" id="edit-quantity" min="0.01" step="0.01" max="9999">
+          </div>
+          <div class="form-group">
+            <label for="edit-unit">Unit</label>
+            <select id="edit-unit"></select>
+          </div>
+          <div class="form-group">
+            <label for="edit-price">Price ($)</label>
+            <input type="number" id="edit-price" min="0" step="0.01">
           </div>
         </div>
         <div class="form-row">
@@ -279,9 +286,95 @@
     </div>
   </div>
 
+  <!-- Settings Modal -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Settings</h3>
+        <button class="modal-close" id="settings-modal-close">&times;</button>
+      </div>
+      <div class="settings-body">
+        <div class="settings-section">
+          <h4>Appearance</h4>
+          <div class="setting-row">
+            <label>Theme</label>
+            <div class="toggle-group">
+              <button class="toggle-btn" data-theme="light">&#9728; Light</button>
+              <button class="toggle-btn active" data-theme="dark">&#9790; Dark</button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <label>Default View</label>
+            <select id="setting-view-mode">
+              <option value="grid">Grid</option>
+              <option value="list">List</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <label>Compact View</label>
+            <input type="checkbox" id="setting-compact-view">
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Defaults</h4>
+          <div class="setting-row">
+            <label>Default Location</label>
+            <select id="setting-default-location"></select>
+          </div>
+          <div class="setting-row">
+            <label>Default Unit</label>
+            <select id="setting-default-unit"></select>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Notifications</h4>
+          <div class="setting-row">
+            <label>Warn Days Before Expiry</label>
+            <select id="setting-notify-days">
+              <option value="1">1 day</option>
+              <option value="2">2 days</option>
+              <option value="3">3 days</option>
+              <option value="5">5 days</option>
+              <option value="7">7 days</option>
+              <option value="14">14 days</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <label>Show Expired Items</label>
+            <input type="checkbox" id="setting-show-expired" checked>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Data Management</h4>
+          <div class="setting-row">
+            <label>Export Data</label>
+            <div class="btn-group">
+              <button class="btn btn-secondary btn-sm" id="btn-export-json">JSON</button>
+              <button class="btn btn-secondary btn-sm" id="btn-export-csv">CSV</button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <label>Import Data</label>
+            <input type="file" id="file-import" accept=".json,.csv" class="hidden">
+            <button class="btn btn-secondary btn-sm" id="btn-import">Import File</button>
+          </div>
+          <div class="setting-row setting-row-danger">
+            <label>Clear All Data</label>
+            <button class="btn btn-danger btn-sm" id="btn-clear-data">Delete All</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast notification -->
   <div id="toast-container" class="toast-container"></div>
 
+  <script src="js/config.js"></script>
   <script src="js/store.js"></script>
   <script src="js/scanner.js"></script>
   <script src="js/recipes.js"></script>
