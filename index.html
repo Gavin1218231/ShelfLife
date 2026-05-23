@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#6c63ff">
   <title>Shelf Life — Pantry Expiration Tracker</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
   <link rel="stylesheet" href="css/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js"></script>
 </head>
@@ -15,8 +19,29 @@
       </h1>
       <p class="tagline">Know what's fresh. Waste nothing.</p>
     </div>
-    <button id="btn-settings" class="header-btn" title="Settings">&#9881;</button>
+    <div class="header-actions">
+      <button id="btn-profile" class="header-btn" title="Profile">🏠</button>
+      <button id="btn-voice" class="header-btn" title="Voice Input">🎤</button>
+      <button id="btn-achievements" class="header-btn" title="Achievements">🏆</button>
+      <button id="btn-settings" class="header-btn" title="Settings">&#9881;</button>
+    </div>
   </header>
+
+  <div id="notification-banner" class="notification-banner hidden">
+    <span>🔔 Enable notifications to get reminders about expiring items</span>
+    <div>
+      <button class="btn btn-sm btn-primary" id="btn-enable-notifications">Enable</button>
+      <button class="btn btn-sm" id="btn-dismiss-notifications">Not Now</button>
+    </div>
+  </div>
+
+  <div id="install-banner" class="notification-banner hidden">
+    <span>📱 Install Shelf Life on your device for offline access</span>
+    <div>
+      <button class="btn btn-sm btn-primary" id="btn-install">Install</button>
+      <button class="btn btn-sm" id="btn-dismiss-install">Not Now</button>
+    </div>
+  </div>
 
   <nav id="main-nav">
     <button class="nav-btn active" data-tab="dashboard">
@@ -25,34 +50,56 @@
     <button class="nav-btn" data-tab="add-item">
       <span class="nav-icon">&#43;</span> Add Item
     </button>
+    <button class="nav-btn" data-tab="shopping">
+      <span class="nav-icon">🛒</span> Shopping
+    </button>
+    <button class="nav-btn" data-tab="meal-plan">
+      <span class="nav-icon">🍴</span> Meals
+    </button>
     <button class="nav-btn" data-tab="weekly-summary">
       <span class="nav-icon">&#128197;</span> Weekly
     </button>
     <button class="nav-btn" data-tab="recipes">
       <span class="nav-icon">&#127859;</span> Recipes
     </button>
+    <button class="nav-btn" data-tab="analytics">
+      <span class="nav-icon">📈</span> Analytics
+    </button>
   </nav>
 
   <main id="app">
     <!-- DASHBOARD TAB -->
     <section id="tab-dashboard" class="tab-content active">
+      <div id="dashboard-widgets" class="dashboard-widgets"></div>
+
       <div class="dashboard-header">
         <div class="dashboard-title-row">
           <h2>Your Pantry</h2>
-          <div class="view-toggle">
-            <button id="btn-grid-view" class="view-btn active" title="Grid View">&#9638;</button>
-            <button id="btn-list-view" class="view-btn" title="List View">&#9776;</button>
+          <div class="dashboard-header-actions">
+            <button id="btn-widget-config" class="header-btn-sm" title="Configure Widgets">📊</button>
+            <button id="btn-bulk-mode" class="header-btn-sm" title="Bulk Select">☑</button>
+            <div class="view-toggle">
+              <button id="btn-grid-view" class="view-btn active" title="Grid View">&#9638;</button>
+              <button id="btn-list-view" class="view-btn" title="List View">&#9776;</button>
+            </div>
           </div>
         </div>
         <div class="dashboard-controls">
           <div class="search-box">
-            <input type="text" id="search-input" placeholder="Search items...">
+            <input type="text" id="search-input" placeholder="Search items, notes, tags... (/)">
           </div>
           <select id="filter-location">
             <option value="all">All Locations</option>
           </select>
           <select id="filter-category">
             <option value="all">All Categories</option>
+          </select>
+          <select id="filter-status">
+            <option value="all">All Status</option>
+            <option value="fresh">Fresh</option>
+            <option value="warning">Use Soon</option>
+            <option value="danger">Expiring</option>
+            <option value="expired">Expired</option>
           </select>
           <select id="sort-by">
             <option value="expiration">Expiring Soonest</option>
@@ -62,14 +109,25 @@
             <option value="added">Recently Added</option>
             <option value="purchased">Recently Purchased</option>
             <option value="quantity">Quantity</option>
+            <option value="value">Value</option>
           </select>
         </div>
+      </div>
+
+      <div id="bulk-mode-bar" class="bulk-mode-bar hidden">
+        <input type="checkbox" id="bulk-select-all">
+        <span id="bulk-count">0 selected</span>
+        <button class="btn btn-sm" id="bulk-mark-used">✓ Used</button>
+        <button class="btn btn-sm" id="bulk-mark-wasted">🗑 Wasted</button>
+        <button class="btn btn-sm" id="bulk-to-shopping">🛒 Shop</button>
+        <button class="btn btn-sm btn-danger" id="bulk-delete">Delete</button>
+        <button class="btn btn-sm" id="bulk-cancel">Cancel</button>
       </div>
 
       <div class="stats-bar">
         <div class="stat" id="stat-total">
           <span class="stat-num">0</span>
-          <span class="stat-label">Total Items</span>
+          <span class="stat-label">Total</span>
         </div>
         <div class="stat stat-fresh" id="stat-fresh">
           <span class="stat-num">0</span>
@@ -89,12 +147,15 @@
         </div>
       </div>
 
+      <div id="frequent-items-bar" class="frequent-items-bar"></div>
+
       <div id="items-grid" class="items-grid">
         <div class="empty-state" id="empty-dashboard">
           <div class="empty-icon">&#127858;</div>
           <h3>Your pantry is empty</h3>
           <p>Add items to start tracking expiration dates.</p>
           <button class="btn btn-primary" onclick="App.switchTab('add-item')">Add Your First Item</button>
+          <button class="btn btn-secondary" id="btn-load-sample">Load Sample Data</button>
         </div>
       </div>
     </section>
@@ -107,7 +168,10 @@
         <form id="add-item-form" class="item-form">
           <div class="form-group">
             <label for="item-name">Item Name *</label>
-            <input type="text" id="item-name" required placeholder="e.g., Whole Milk" autocomplete="off">
+            <div class="input-with-suggestions">
+              <input type="text" id="item-name" required placeholder="e.g., Whole Milk" autocomplete="off">
+              <div id="name-suggestions" class="suggestions-dropdown hidden"></div>
+            </div>
           </div>
 
           <div class="form-row">
@@ -142,10 +206,40 @@
               <input type="date" id="item-purchase-date">
             </div>
             <div class="form-group">
-              <label for="item-expiration-date">Expiration Date *</label>
+              <label for="item-expiration-date">
+                Expiration Date *
+                <button type="button" id="btn-auto-expiration" class="btn-link" title="Auto-fill from database">✨ Auto</button>
+              </label>
               <input type="date" id="item-expiration-date" required>
             </div>
           </div>
+
+          <details class="form-advanced">
+            <summary>Advanced Options</summary>
+            <div class="form-row form-row-3">
+              <div class="form-group">
+                <label for="item-opened-date">Opened Date</label>
+                <input type="date" id="item-opened-date">
+              </div>
+              <div class="form-group">
+                <label for="item-low-stock">Low Stock Alert</label>
+                <input type="number" id="item-low-stock" min="0" step="1" placeholder="e.g., 1">
+              </div>
+              <div class="form-group">
+                <label for="item-origin">Origin</label>
+                <select id="item-origin">
+                  <option value="">Unknown</option>
+                  <option value="local">Local</option>
+                  <option value="domestic">Domestic</option>
+                  <option value="imported">Imported</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Dietary Tags</label>
+              <div id="item-tags" class="tag-selector"></div>
+            </div>
+          </details>
 
           <div class="form-group">
             <label for="item-notes">Notes</label>
@@ -154,6 +248,8 @@
 
           <div class="form-actions">
             <button type="button" id="btn-add-item" class="btn btn-primary">Add Item</button>
+            <button type="button" id="btn-voice-add" class="btn btn-secondary">🎤 Voice</button>
+            <button type="button" id="btn-batch-import" class="btn btn-secondary">📋 Batch</button>
             <button type="reset" class="btn btn-secondary">Clear</button>
           </div>
         </form>
@@ -180,13 +276,61 @@
       </div>
     </section>
 
+    <!-- SHOPPING LIST TAB -->
+    <section id="tab-shopping" class="tab-content">
+      <div class="shopping-header">
+        <h2>🛒 Shopping List</h2>
+        <p class="weekly-subtitle">Items to pick up on your next grocery run</p>
+        <div class="shopping-actions">
+          <button class="btn btn-secondary btn-sm" id="btn-add-low-stock">+ Low Stock</button>
+          <button class="btn btn-secondary btn-sm" id="btn-add-expired">+ Expired</button>
+          <button class="btn btn-secondary btn-sm" id="btn-add-buy-again">+ Buy Again</button>
+          <button class="btn btn-secondary btn-sm" id="btn-clear-checked">Clear Checked</button>
+          <button class="btn btn-secondary btn-sm" id="btn-share-list">📤 Share</button>
+        </div>
+      </div>
+      <div class="shopping-add-row">
+        <input type="text" id="shopping-input" placeholder="Add item to shopping list...">
+        <input type="number" id="shopping-qty" min="0.01" step="0.01" placeholder="Qty" value="1">
+        <button class="btn btn-primary" id="btn-shopping-add">Add</button>
+      </div>
+      <div id="shopping-list-container" class="shopping-list-container">
+        <div class="empty-state">
+          <div class="empty-icon">🛒</div>
+          <h3>Shopping list is empty</h3>
+          <p>Add items manually or auto-populate from your pantry.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- MEAL PLAN TAB -->
+    <section id="tab-meal-plan" class="tab-content">
+      <div class="mealplan-header">
+        <h2>🍴 Meal Planner</h2>
+        <div class="mealplan-nav">
+          <button class="btn btn-secondary btn-sm" id="btn-prev-week">← Previous</button>
+          <span id="mealplan-week-label" class="mealplan-week-label"></span>
+          <button class="btn btn-secondary btn-sm" id="btn-next-week">Next →</button>
+        </div>
+        <div class="mealplan-actions">
+          <button class="btn btn-secondary btn-sm" id="btn-mealplan-shopping">→ Shopping List</button>
+          <button class="btn btn-secondary btn-sm" id="btn-mealplan-clear">Clear Week</button>
+        </div>
+      </div>
+      <div id="mealplan-suggestions" class="mealplan-suggestions"></div>
+      <div id="mealplan-calendar" class="mealplan-calendar"></div>
+    </section>
+
     <!-- WEEKLY SUMMARY TAB -->
     <section id="tab-weekly-summary" class="tab-content">
       <div class="weekly-header">
         <h2>Use It or Lose It</h2>
         <p class="weekly-subtitle">Items expiring in the next 7 days — prioritize these!</p>
+        <div class="weekly-actions">
+          <button class="btn btn-secondary btn-sm" id="btn-weekly-calendar">📅 Calendar</button>
+          <button class="btn btn-secondary btn-sm" id="btn-weekly-print">🖨 Print</button>
+        </div>
       </div>
-
       <div id="weekly-content">
         <div class="empty-state" id="empty-weekly">
           <div class="empty-icon">&#127881;</div>
@@ -202,7 +346,6 @@
         <h2>Recipe Suggestions</h2>
         <p class="recipes-subtitle">Recipes based on items expiring soon — reduce waste deliciously!</p>
       </div>
-
       <div id="recipe-ingredients" class="recipe-ingredients"></div>
       <div id="recipes-content" class="recipes-grid">
         <div class="empty-state" id="empty-recipes">
@@ -211,6 +354,20 @@
           <p>Add items with expiration dates to get recipe suggestions.</p>
         </div>
       </div>
+    </section>
+
+    <!-- ANALYTICS TAB -->
+    <section id="tab-analytics" class="tab-content">
+      <div class="analytics-header">
+        <h2>📈 Analytics & Insights</h2>
+        <select id="analytics-period" class="analytics-period">
+          <option value="week">Past Week</option>
+          <option value="month" selected>Past Month</option>
+          <option value="year">Past Year</option>
+          <option value="all">All Time</option>
+        </select>
+      </div>
+      <div id="analytics-content"></div>
     </section>
   </main>
 
@@ -263,12 +420,22 @@
           </div>
         </div>
         <div class="form-group">
+          <label for="edit-opened-date">Opened Date</label>
+          <input type="date" id="edit-opened-date">
+        </div>
+        <div class="form-group">
+          <label>Dietary Tags</label>
+          <div id="edit-tags" class="tag-selector"></div>
+        </div>
+        <div class="form-group">
           <label for="edit-notes">Notes</label>
           <input type="text" id="edit-notes">
         </div>
         <div class="form-actions">
-          <button type="submit" class="btn btn-primary">Save Changes</button>
-          <button type="button" class="btn btn-danger" id="btn-delete-item">Delete Item</button>
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" class="btn btn-secondary" id="btn-mark-used">✓ Used</button>
+          <button type="button" class="btn btn-secondary" id="btn-mark-wasted">🗑 Waste</button>
+          <button type="button" class="btn btn-danger" id="btn-delete-item">Delete</button>
         </div>
       </form>
     </div>
@@ -289,7 +456,7 @@
   <!-- Settings Modal -->
   <div id="settings-modal" class="modal hidden">
     <div class="modal-backdrop"></div>
-    <div class="modal-content">
+    <div class="modal-content modal-large">
       <div class="modal-header">
         <h3>Settings</h3>
         <button class="modal-close" id="settings-modal-close">&times;</button>
@@ -315,6 +482,10 @@
             <label>Compact View</label>
             <input type="checkbox" id="setting-compact-view">
           </div>
+          <div class="setting-row">
+            <label>Show Widgets</label>
+            <input type="checkbox" id="setting-show-widgets" checked>
+          </div>
         </div>
 
         <div class="settings-section">
@@ -327,10 +498,22 @@
             <label>Default Unit</label>
             <select id="setting-default-unit"></select>
           </div>
+          <div class="setting-row">
+            <label>Auto-fill Expiration Date</label>
+            <input type="checkbox" id="setting-auto-expiration" checked>
+          </div>
         </div>
 
         <div class="settings-section">
           <h4>Notifications</h4>
+          <div class="setting-row">
+            <label>Browser Notifications</label>
+            <input type="checkbox" id="setting-notifications-enabled">
+          </div>
+          <div class="setting-row">
+            <label>Notification Time</label>
+            <input type="time" id="setting-notification-time" value="09:00">
+          </div>
           <div class="setting-row">
             <label>Warn Days Before Expiry</label>
             <select id="setting-notify-days">
@@ -349,6 +532,61 @@
         </div>
 
         <div class="settings-section">
+          <h4>Budget</h4>
+          <div class="setting-row">
+            <label>Monthly Budget ($)</label>
+            <input type="number" id="setting-monthly-budget" min="0" step="10" value="0">
+          </div>
+          <div class="setting-row">
+            <label>Budget Alerts</label>
+            <input type="checkbox" id="setting-budget-alerts">
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Sustainability</h4>
+          <div class="setting-row">
+            <label>Show Carbon Footprint</label>
+            <input type="checkbox" id="setting-show-carbon" checked>
+          </div>
+          <div class="setting-row">
+            <label>Seasonal Suggestions</label>
+            <input type="checkbox" id="setting-seasonal" checked>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Gamification</h4>
+          <div class="setting-row">
+            <label>Show Achievements</label>
+            <input type="checkbox" id="setting-show-achievements" checked>
+          </div>
+          <div class="setting-row">
+            <label>Celebrations</label>
+            <input type="checkbox" id="setting-celebrations" checked>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Reports</h4>
+          <div class="setting-row">
+            <label>Print Reports</label>
+            <div class="btn-group">
+              <button class="btn btn-secondary btn-sm" id="btn-print-inventory">Inventory</button>
+              <button class="btn btn-secondary btn-sm" id="btn-print-weekly">Weekly</button>
+              <button class="btn btn-secondary btn-sm" id="btn-print-value">Value</button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <label>Calendar Export</label>
+            <div class="btn-group">
+              <button class="btn btn-secondary btn-sm" id="btn-export-ical-week">Week</button>
+              <button class="btn btn-secondary btn-sm" id="btn-export-ical-all">All Items</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
           <h4>Data Management</h4>
           <div class="setting-row">
             <label>Export Data</label>
@@ -362,6 +600,10 @@
             <input type="file" id="file-import" accept=".json,.csv" class="hidden">
             <button class="btn btn-secondary btn-sm" id="btn-import">Import File</button>
           </div>
+          <div class="setting-row">
+            <label>Reset Tutorial</label>
+            <button class="btn btn-secondary btn-sm" id="btn-reset-tutorial">Reset</button>
+          </div>
           <div class="setting-row setting-row-danger">
             <label>Clear All Data</label>
             <button class="btn btn-danger btn-sm" id="btn-clear-data">Delete All</button>
@@ -371,13 +613,180 @@
     </div>
   </div>
 
+  <!-- Achievements Modal -->
+  <div id="achievements-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h3>🏆 Achievements</h3>
+        <button class="modal-close" id="achievements-modal-close">&times;</button>
+      </div>
+      <div id="achievements-body" class="achievements-body"></div>
+    </div>
+  </div>
+
+  <!-- Profile Modal -->
+  <div id="profile-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🏠 Household Profiles</h3>
+        <button class="modal-close" id="profile-modal-close">&times;</button>
+      </div>
+      <div id="profile-body"></div>
+    </div>
+  </div>
+
+  <!-- Command Palette -->
+  <div id="command-palette" class="command-palette hidden">
+    <div class="modal-backdrop"></div>
+    <div class="palette-content">
+      <input type="text" id="palette-input" placeholder="Type a command... (try 'export' or 'theme')" autocomplete="off">
+      <div id="palette-results" class="palette-results"></div>
+      <div class="palette-footer">
+        <kbd>↑↓</kbd> Navigate <kbd>Enter</kbd> Select <kbd>Esc</kbd> Close
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyboard Help Modal -->
+  <div id="keyboard-help-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>⌨️ Keyboard Shortcuts</h3>
+        <button class="modal-close" id="keyboard-help-close">&times;</button>
+      </div>
+      <div class="keyboard-help-body">
+        <div class="kb-row"><kbd>Ctrl</kbd>+<kbd>K</kbd><span>Open command palette</span></div>
+        <div class="kb-row"><kbd>?</kbd><span>Show this help</span></div>
+        <div class="kb-row"><kbd>/</kbd><span>Focus search</span></div>
+        <div class="kb-row"><kbd>d</kbd><span>Dashboard</span></div>
+        <div class="kb-row"><kbd>a</kbd><span>Add Item</span></div>
+        <div class="kb-row"><kbd>s</kbd><span>Shopping</span></div>
+        <div class="kb-row"><kbd>m</kbd><span>Meal Plan</span></div>
+        <div class="kb-row"><kbd>w</kbd><span>Weekly Summary</span></div>
+        <div class="kb-row"><kbd>r</kbd><span>Recipes</span></div>
+        <div class="kb-row"><kbd>n</kbd><span>Analytics</span></div>
+        <div class="kb-row"><kbd>Esc</kbd><span>Close modal / Cancel</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Voice Input Modal -->
+  <div id="voice-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🎤 Voice Input</h3>
+        <button class="modal-close" id="voice-modal-close">&times;</button>
+      </div>
+      <div class="voice-body">
+        <div id="voice-status" class="voice-status">Click the microphone to start</div>
+        <button id="btn-voice-listen" class="voice-mic-btn">🎤</button>
+        <div id="voice-transcript" class="voice-transcript"></div>
+        <div class="voice-examples">
+          <strong>Try saying:</strong>
+          <ul>
+            <li>"Add milk expires Friday in fridge"</li>
+            <li>"Add 2 pounds chicken expires tomorrow"</li>
+            <li>"Add 12 eggs expires in 14 days"</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Import Modal -->
+  <div id="batch-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h3>📋 Batch Import</h3>
+        <button class="modal-close" id="batch-modal-close">&times;</button>
+      </div>
+      <div class="batch-body">
+        <div class="batch-tabs">
+          <button class="batch-tab active" data-batch-tab="templates">Templates</button>
+          <button class="batch-tab" data-batch-tab="paste">Paste Text</button>
+        </div>
+        <div id="batch-templates" class="batch-section active"></div>
+        <div id="batch-paste" class="batch-section">
+          <p class="batch-desc">Paste a list of items (one per line). Optional: include price (e.g., "Milk $3.99") or quantity (e.g., "2x Eggs").</p>
+          <textarea id="batch-text" rows="10" placeholder="Milk $3.99&#10;2x Eggs&#10;Bread&#10;Bananas $2.00"></textarea>
+          <div class="form-actions">
+            <button class="btn btn-primary" id="btn-batch-parse">Parse & Import</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Widget Config Modal -->
+  <div id="widget-modal" class="modal hidden">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>📊 Customize Dashboard</h3>
+        <button class="modal-close" id="widget-modal-close">&times;</button>
+      </div>
+      <div id="widget-body"></div>
+    </div>
+  </div>
+
+  <!-- Onboarding Overlay -->
+  <div id="onboarding-overlay" class="onboarding-overlay hidden">
+    <div class="onboarding-card">
+      <div class="onboarding-progress">
+        <span id="onboarding-step-num">1</span> / <span id="onboarding-step-total">7</span>
+      </div>
+      <h2 id="onboarding-title"></h2>
+      <p id="onboarding-body"></p>
+      <div class="onboarding-actions">
+        <button class="btn btn-secondary" id="onboarding-skip">Skip Tour</button>
+        <button class="btn btn-primary" id="onboarding-next">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Celebration Overlay -->
+  <div id="celebration-overlay" class="celebration-overlay hidden">
+    <div id="confetti-container"></div>
+    <div class="celebration-card">
+      <div id="celebration-icon" class="celebration-icon">🏆</div>
+      <h2 id="celebration-title">Achievement Unlocked!</h2>
+      <p id="celebration-desc"></p>
+      <div id="celebration-xp" class="celebration-xp"></div>
+    </div>
+  </div>
+
   <!-- Toast notification -->
   <div id="toast-container" class="toast-container"></div>
 
+  <!-- Scripts -->
   <script src="js/config.js"></script>
   <script src="js/store.js"></script>
   <script src="js/scanner.js"></script>
   <script src="js/recipes.js"></script>
+  <script src="js/shelflife-db.js"></script>
+  <script src="js/analytics.js"></script>
+  <script src="js/shopping.js"></script>
+  <script src="js/mealplan.js"></script>
+  <script src="js/achievements.js"></script>
+  <script src="js/notifications.js"></script>
+  <script src="js/bulk-ops.js"></script>
+  <script src="js/search.js"></script>
+  <script src="js/reports.js"></script>
+  <script src="js/onboarding.js"></script>
+  <script src="js/voice.js"></script>
+  <script src="js/keyboard.js"></script>
+  <script src="js/budget.js"></script>
+  <script src="js/sustainability.js"></script>
+  <script src="js/profiles.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/widgets.js"></script>
+  <script src="js/nutrition.js"></script>
+  <script src="js/batch-import.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

@@ -107,6 +107,19 @@ const Config = (() => {
     showExpiredItems: true,
     groupByLocation: false,
     compactView: false,
+    // New settings for expanded features
+    notificationsEnabled: false,
+    notificationTime: '09:00',
+    autoFillExpiration: true,
+    showAchievements: true,
+    celebrationsEnabled: true,
+    voiceEnabled: true,
+    showWidgets: true,
+    monthlyBudget: 0,
+    budgetAlerts: false,
+    showCarbonFootprint: true,
+    seasonalSuggestions: true,
+    autoBackup: false,
   };
 
   // ===== Settings persistence =====

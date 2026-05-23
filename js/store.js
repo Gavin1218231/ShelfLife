@@ -2,7 +2,15 @@
  * Store — localStorage-backed data model for pantry items.
  */
 const Store = (() => {
-  const STORAGE_KEY = 'shelflife_items';
+  let STORAGE_KEY = 'shelflife_items';
+
+  function setStorageKey(key) {
+    STORAGE_KEY = key;
+  }
+
+  function getStorageKey() {
+    return STORAGE_KEY;
+  }
 
   function generateId() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -11,7 +19,8 @@ const Store = (() => {
   function loadItems() {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
-      return data ? JSON.parse(data) : [];
+      const items = data ? JSON.parse(data) : [];
+      return migrateItems(items);
     } catch {
       return [];
     }
@@ -21,27 +30,57 @@ const Store = (() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   }
 
-  function getAll() {
-    return loadItems();
+  function migrateItems(items) {
+    let migrated = false;
+    items.forEach(item => {
+      if (item.tags === undefined) { item.tags = []; migrated = true; }
+      if (item.openedDate === undefined) { item.openedDate = null; migrated = true; }
+      if (item.openedShelfLife === undefined) { item.openedShelfLife = null; migrated = true; }
+      if (item.photoUrl === undefined) { item.photoUrl = null; migrated = true; }
+      if (item.lowStockThreshold === undefined) { item.lowStockThreshold = null; migrated = true; }
+      if (item.disposalType === undefined) { item.disposalType = null; migrated = true; }
+      if (item.disposedAt === undefined) { item.disposedAt = null; migrated = true; }
+      if (item.origin === undefined) { item.origin = null; migrated = true; }
+      if (item.calories === undefined) { item.calories = null; migrated = true; }
+      if (item.protein === undefined) { item.protein = null; migrated = true; }
+      if (item.carbs === undefined) { item.carbs = null; migrated = true; }
+      if (item.fat === undefined) { item.fat = null; migrated = true; }
+      if (item.addedBy === undefined) { item.addedBy = null; migrated = true; }
+    });
+    if (migrated) saveItems(items);
+    return items;
   }
 
-  function getById(id) {
-    return loadItems().find(item => item.id === id) || null;
-  }
+  function getAll() { return loadItems(); }
 
-  function addItem({ name, category, location, quantity, unit, purchaseDate, expirationDate, notes, price }) {
+  function getById(id) { return loadItems().find(item => item.id === id) || null; }
+
+  function addItem(data) {
     const items = loadItems();
     const newItem = {
       id: generateId(),
-      name: name.trim(),
-      category: category || 'other',
-      location: location || 'fridge',
-      quantity: parseFloat(quantity) || 1,
-      unit: unit || 'pieces',
-      purchaseDate: purchaseDate || null,
-      expirationDate: expirationDate,
-      notes: notes ? notes.trim() : '',
-      price: price ? parseFloat(price) : null,
+      name: (data.name || '').trim(),
+      category: data.category || 'other',
+      location: data.location || 'fridge',
+      quantity: parseFloat(data.quantity) || 1,
+      unit: data.unit || 'pieces',
+      purchaseDate: data.purchaseDate || null,
+      expirationDate: data.expirationDate,
+      notes: data.notes ? data.notes.trim() : '',
+      price: data.price ? parseFloat(data.price) : null,
+      tags: Array.isArray(data.tags) ? data.tags : [],
+      openedDate: data.openedDate || null,
+      openedShelfLife: data.openedShelfLife || null,
+      photoUrl: data.photoUrl || null,
+      lowStockThreshold: data.lowStockThreshold ? parseFloat(data.lowStockThreshold) : null,
+      disposalType: null,
+      disposedAt: null,
+      origin: data.origin || null,
+      calories: data.calories ? parseFloat(data.calories) : null,
+      protein: data.protein ? parseFloat(data.protein) : null,
+      carbs: data.carbs ? parseFloat(data.carbs) : null,
+      fat: data.fat ? parseFloat(data.fat) : null,
+      addedBy: data.addedBy || null,
       createdAt: new Date().toISOString(),
     };
     items.push(newItem);
@@ -53,7 +92,6 @@ const Store = (() => {
     const items = loadItems();
     const index = items.findIndex(item => item.id === id);
     if (index === -1) return null;
-    // Ensure numeric fields are parsed
     if (updates.quantity !== undefined) updates.quantity = parseFloat(updates.quantity) || 1;
     if (updates.price !== undefined) updates.price = updates.price ? parseFloat(updates.price) : null;
     items[index] = { ...items[index], ...updates };
@@ -68,9 +106,15 @@ const Store = (() => {
     return filtered.length < items.length;
   }
 
-  function deleteAll() {
-    saveItems([]);
+  function deleteMany(ids) {
+    const items = loadItems();
+    const idSet = new Set(ids);
+    const filtered = items.filter(item => !idSet.has(item.id));
+    saveItems(filtered);
+    return items.length - filtered.length;
   }
+
+  function deleteAll() { saveItems([]); }
 
   function deleteAllExpired() {
     const items = loadItems();
@@ -84,21 +128,14 @@ const Store = (() => {
     return items.length - filtered.length;
   }
 
-  /**
-   * Calculate days until expiration. Negative means already expired.
-   */
   function daysUntilExpiration(expirationDate) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const exp = new Date(expirationDate);
     exp.setHours(0, 0, 0, 0);
-    const diff = exp - today;
-    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    return Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
   }
 
-  /**
-   * Get freshness status: 'fresh' (>7 days), 'warning' (3-7), 'danger' (0-2), 'expired' (<0)
-   */
   function getStatus(expirationDate) {
     const days = daysUntilExpiration(expirationDate);
     if (days < 0) return 'expired';
@@ -107,65 +144,37 @@ const Store = (() => {
     return 'fresh';
   }
 
-  /**
-   * Get items expiring within the next N days (includes today).
-   */
   function getExpiringWithin(days) {
-    const items = loadItems();
-    return items.filter(item => {
+    return loadItems().filter(item => {
       const d = daysUntilExpiration(item.expirationDate);
       return d >= 0 && d <= days;
     });
   }
 
-  /**
-   * Get already expired items.
-   */
   function getExpired() {
-    const items = loadItems();
-    return items.filter(item => daysUntilExpiration(item.expirationDate) < 0);
+    return loadItems().filter(item => daysUntilExpiration(item.expirationDate) < 0);
   }
 
-  /**
-   * Get counts by status.
-   */
   function getStats() {
     const items = loadItems();
     const stats = { total: items.length, fresh: 0, warning: 0, danger: 0, expired: 0 };
-    items.forEach(item => {
-      const status = getStatus(item.expirationDate);
-      stats[status]++;
-    });
+    items.forEach(item => { stats[getStatus(item.expirationDate)]++; });
     return stats;
   }
 
-  /**
-   * Get items grouped by expiration date (for weekly view).
-   */
   function getGroupedByExpirationDate(daysAhead = 7) {
     const items = loadItems();
     const groups = {};
-
-    // Include overdue items
     items.forEach(item => {
-      const days = daysUntilExpiration(item.expirationDate);
-      if (days <= daysAhead) {
+      if (daysUntilExpiration(item.expirationDate) <= daysAhead) {
         const dateKey = item.expirationDate;
-        if (!groups[dateKey]) {
-          groups[dateKey] = [];
-        }
+        if (!groups[dateKey]) groups[dateKey] = [];
         groups[dateKey].push(item);
       }
     });
-
-    // Sort by date
-    const sorted = Object.entries(groups).sort(([a], [b]) => new Date(a) - new Date(b));
-    return sorted;
+    return Object.entries(groups).sort(([a], [b]) => new Date(a) - new Date(b));
   }
 
-  /**
-   * Get items grouped by location.
-   */
   function getGroupedByLocation() {
     const items = loadItems();
     const groups = {};
@@ -177,49 +186,54 @@ const Store = (() => {
     return groups;
   }
 
-  /**
-   * Get unique item names that are expiring soon (for recipe suggestions).
-   */
+  function getGroupedByCategory() {
+    const items = loadItems();
+    const groups = {};
+    items.forEach(item => {
+      const cat = item.category || 'other';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
+    });
+    return groups;
+  }
+
   function getExpiringIngredients(daysAhead = 7) {
     const expiring = getExpiringWithin(daysAhead);
     const expired = getExpired();
-    const all = [...expired, ...expiring];
-    const names = [...new Set(all.map(item => item.name.toLowerCase()))];
-    return names;
+    return [...new Set([...expired, ...expiring].map(item => item.name.toLowerCase()))];
   }
 
-  /**
-   * Calculate total value of inventory.
-   */
   function getTotalValue() {
-    const items = loadItems();
-    return items.reduce((sum, item) => {
+    return loadItems().reduce((sum, item) =>
+      item.price ? sum + (item.price * (item.quantity || 1)) : sum, 0);
+  }
+
+  function getValueByCategory() {
+    const result = {};
+    loadItems().forEach(item => {
       if (item.price) {
-        return sum + (item.price * (item.quantity || 1));
+        const cat = item.category || 'other';
+        result[cat] = (result[cat] || 0) + (item.price * (item.quantity || 1));
       }
-      return sum;
-    }, 0);
+    });
+    return result;
   }
 
-  /**
-   * Export all data as JSON string.
-   */
-  function exportJSON() {
-    return JSON.stringify(loadItems(), null, 2);
+  function getLowStockItems() {
+    return loadItems().filter(item =>
+      item.lowStockThreshold !== null && item.quantity <= item.lowStockThreshold);
   }
 
-  /**
-   * Export all data as CSV string.
-   */
+  function exportJSON() { return JSON.stringify(loadItems(), null, 2); }
+
   function exportCSV() {
     const items = loadItems();
     if (items.length === 0) return '';
-
-    const headers = ['name', 'category', 'location', 'quantity', 'unit', 'purchaseDate', 'expirationDate', 'notes', 'price'];
+    const headers = ['name', 'category', 'location', 'quantity', 'unit', 'purchaseDate', 'expirationDate', 'notes', 'price', 'tags', 'openedDate', 'origin'];
     const rows = items.map(item =>
       headers.map(h => {
-        const val = item[h] ?? '';
-        // Escape quotes and wrap in quotes if contains comma
+        let val = item[h] ?? '';
+        if (Array.isArray(val)) val = val.join(';');
         const str = String(val).replace(/"/g, '""');
         return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str}"` : str;
       }).join(',')
@@ -227,30 +241,22 @@ const Store = (() => {
     return [headers.join(','), ...rows].join('\n');
   }
 
-  /**
-   * Import items from JSON array.
-   */
   function importJSON(jsonStr) {
     try {
       const data = JSON.parse(jsonStr);
       if (!Array.isArray(data)) throw new Error('Invalid format');
       const existing = loadItems();
       const existingIds = new Set(existing.map(i => i.id));
-
       let imported = 0;
       data.forEach(item => {
         if (item.name && item.expirationDate) {
-          // Generate new ID if collision or missing
-          if (!item.id || existingIds.has(item.id)) {
-            item.id = generateId();
-          }
+          if (!item.id || existingIds.has(item.id)) item.id = generateId();
           if (!item.createdAt) item.createdAt = new Date().toISOString();
           existing.push(item);
           existingIds.add(item.id);
           imported++;
         }
       });
-
       saveItems(existing);
       return imported;
     } catch (e) {
@@ -258,96 +264,55 @@ const Store = (() => {
     }
   }
 
-  /**
-   * Import items from CSV string.
-   */
   function importCSV(csvStr) {
     const lines = csvStr.trim().split('\n');
     if (lines.length < 2) return 0;
-
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
     const nameIdx = headers.indexOf('name');
     const expIdx = headers.indexOf('expirationdate');
-
-    if (nameIdx === -1 || expIdx === -1) {
-      throw new Error('CSV must have "name" and "expirationDate" columns');
-    }
-
+    if (nameIdx === -1 || expIdx === -1) throw new Error('CSV must have "name" and "expirationDate" columns');
     const items = loadItems();
     let imported = 0;
-
     for (let i = 1; i < lines.length; i++) {
       const values = parseCSVLine(lines[i]);
       if (values.length < headers.length) continue;
-
-      const item = {
-        id: generateId(),
-        createdAt: new Date().toISOString(),
-      };
-
+      const item = { id: generateId(), createdAt: new Date().toISOString(), tags: [] };
       headers.forEach((h, idx) => {
         const val = values[idx]?.trim() || '';
         if (h === 'quantity') item[h] = parseFloat(val) || 1;
         else if (h === 'price') item[h] = val ? parseFloat(val) : null;
+        else if (h === 'tags') item[h] = val ? val.split(';') : [];
         else item[h] = val || null;
       });
-
-      if (item.name && item.expirationDate) {
-        items.push(item);
-        imported++;
-      }
+      if (item.name && item.expirationDate) { items.push(item); imported++; }
     }
-
     saveItems(items);
     return imported;
   }
 
-  // Simple CSV line parser (handles quoted fields)
   function parseCSVLine(line) {
     const result = [];
     let current = '';
     let inQuotes = false;
-
     for (let i = 0; i < line.length; i++) {
       const c = line[i];
       if (c === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"';
-          i++;
-        } else {
-          inQuotes = !inQuotes;
-        }
-      } else if (c === ',' && !inQuotes) {
-        result.push(current);
-        current = '';
-      } else {
-        current += c;
-      }
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (c === ',' && !inQuotes) { result.push(current); current = ''; }
+      else current += c;
     }
     result.push(current);
     return result;
   }
 
   return {
-    getAll,
-    getById,
-    addItem,
-    updateItem,
-    deleteItem,
-    deleteAll,
-    deleteAllExpired,
-    daysUntilExpiration,
-    getStatus,
-    getExpiringWithin,
-    getExpired,
-    getStats,
-    getGroupedByExpirationDate,
-    getGroupedByLocation,
-    getExpiringIngredients,
-    getTotalValue,
-    exportJSON,
-    exportCSV,
-    importJSON,
-    importCSV,
+    setStorageKey, getStorageKey,
+    getAll, getById, addItem, updateItem, deleteItem, deleteMany, deleteAll, deleteAllExpired,
+    daysUntilExpiration, getStatus,
+    getExpiringWithin, getExpired, getStats,
+    getGroupedByExpirationDate, getGroupedByLocation, getGroupedByCategory,
+    getExpiringIngredients, getTotalValue, getValueByCategory, getLowStockItems,
+    exportJSON, exportCSV, importJSON, importCSV,
   };
 })();
