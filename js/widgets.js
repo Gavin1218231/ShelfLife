@@ -119,7 +119,7 @@ const Widgets = (() => {
   function renderRecentWidget() {
     const items = Store.getAll().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
     if (items.length === 0) return '<p class="widget-empty">No recent activity</p>';
-    return items.map(item => `<div class="widget-row"><span>${escapeHtml(item.name)}</span><span class="widget-tag">${item.category}</span></div>`).join('');
+    return items.map(item => `<div class="widget-row"><span>${escapeHtml(item.name)}</span><span class="widget-tag">${escapeHtml(item.category)}</span></div>`).join('');
   }
 
   function renderShoppingWidget() {

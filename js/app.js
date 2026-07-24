@@ -43,6 +43,11 @@ const App = (() => {
     URL.revokeObjectURL(url);
   }
 
+  // Only allow http(s) URLs; strips javascript:, data:, vbscript:, etc.
+  function safeUrl(u) {
+    return (typeof u === 'string' && /^https?:\/\//i.test(u)) ? u : '';
+  }
+
   function switchTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
@@ -909,14 +914,18 @@ const App = (() => {
       recipesContainer.innerHTML = `<div class="empty-state"><div class="empty-icon">&#128533;</div><h3>No recipes found</h3></div>`;
       return;
     }
-    recipesContainer.innerHTML = meals.slice(0, 12).map(meal => `
-      <div class="recipe-card" data-meal-id="${meal.id}">
-        <img src="${meal.thumb}/preview" alt="${escapeHtml(meal.name)}" loading="lazy">
+    recipesContainer.innerHTML = meals.slice(0, 12).map(meal => {
+      const thumb = safeUrl(meal.thumb);
+      const previewSrc = thumb ? escapeAttr(thumb + '/preview') : '';
+      return `
+      <div class="recipe-card" data-meal-id="${escapeAttr(meal.id)}">
+        <img src="${previewSrc}" alt="${escapeHtml(meal.name)}" loading="lazy">
         <div class="recipe-card-body">
           <h4>${escapeHtml(meal.name)}</h4>
           <p>Uses: ${meal.matchedIngredients.map(i => escapeHtml(i)).join(', ')}</p>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     document.querySelectorAll('.recipe-card').forEach(card => {
       card.addEventListener('click', () => openRecipeDetail(card.dataset.mealId));
     });
@@ -933,7 +942,9 @@ const App = (() => {
     if (!detail) { title.textContent = 'Error'; body.innerHTML = '<p>Could not load.</p>'; return; }
     Achievements.recordEvent('recipe_viewed');
     title.textContent = detail.name;
-    body.innerHTML = `<img class="recipe-detail-img" src="${detail.thumb}" alt="${escapeHtml(detail.name)}">
+    const thumbSrc = safeUrl(detail.thumb);
+    const ytUrl = safeUrl(detail.youtube);
+    body.innerHTML = `<img class="recipe-detail-img" src="${escapeAttr(thumbSrc)}" alt="${escapeHtml(detail.name)}">
       <div class="recipe-detail-meta">
         ${detail.category ? `<span>&#127860; ${escapeHtml(detail.category)}</span>` : ''}
         ${detail.area ? `<span>&#127758; ${escapeHtml(detail.area)}</span>` : ''}
@@ -944,7 +955,7 @@ const App = (() => {
       <div class="recipe-detail-instructions"><h4>Instructions</h4>
         <p>${escapeHtml(detail.instructions).replace(/\n/g, '<br>')}</p>
       </div>
-      ${detail.youtube ? `<a href="${detail.youtube}" target="_blank" rel="noopener" class="recipe-video-link">&#9654; Watch Video</a>` : ''}`;
+      ${ytUrl ? `<a href="${escapeAttr(ytUrl)}" target="_blank" rel="noopener noreferrer" class="recipe-video-link">&#9654; Watch Video</a>` : ''}`;
   }
 
   function initRecipeModal() {
