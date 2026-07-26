@@ -16,6 +16,56 @@ const Store = (() => {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
   }
 
+  // Enum-ish keys (category/location/unit) are rendered through Config label
+  // lookups that fall back to the raw key, so an unknown value reaches the DOM
+  // verbatim. Reject anything that isn't a plain identifier, then whitelist
+  // against Config when it is loaded (it isn't in the standalone test harness).
+  const SAFE_KEY = /^[A-Za-z0-9_-]{1,40}$/;
+
+  function sanitizeEnum(value, dictName, fallback) {
+    if (typeof value !== 'string' || !SAFE_KEY.test(value)) return fallback;
+    if (typeof Config !== 'undefined' && Config[dictName]) {
+      return Config[dictName][value] ? value : fallback;
+    }
+    return value;
+  }
+
+  // CSV headers are matched case-insensitively, so map the lower-cased header
+  // back to the canonical camelCase field name. Anything not listed is ignored.
+  const CSV_FIELDS = {
+    name: 'name', category: 'category', location: 'location',
+    quantity: 'quantity', unit: 'unit', price: 'price', notes: 'notes',
+    tags: 'tags', origin: 'origin',
+    purchasedate: 'purchaseDate', expirationdate: 'expirationDate',
+    openeddate: 'openedDate', lowstockthreshold: 'lowStockThreshold',
+  };
+
+  function toNumber(value, fallback) {
+    const n = parseFloat(value);
+    return Number.isFinite(n) && n > 0 ? n : fallback;
+  }
+
+  /**
+   * Normalize an item arriving from an untrusted file import. Imported ids are
+   * never trusted: they land in data-id attributes, so we always regenerate.
+   */
+  function sanitizeImportedItem(item) {
+    return {
+      ...item,
+      id: generateId(),
+      name: String(item.name).trim(),
+      category: sanitizeEnum(item.category, 'CATEGORIES', 'other'),
+      location: sanitizeEnum(item.location, 'LOCATIONS', 'fridge'),
+      unit: sanitizeEnum(item.unit, 'UNITS', 'pieces'),
+      quantity: toNumber(item.quantity, 1),
+      price: item.price === null || item.price === undefined || item.price === ''
+        ? null : (toNumber(item.price, null)),
+      notes: item.notes ? String(item.notes).trim() : '',
+      tags: Array.isArray(item.tags) ? item.tags.filter(t => typeof t === 'string') : [],
+      createdAt: item.createdAt || new Date().toISOString(),
+    };
+  }
+
   function loadItems() {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
@@ -246,14 +296,10 @@ const Store = (() => {
       const data = JSON.parse(jsonStr);
       if (!Array.isArray(data)) throw new Error('Invalid format');
       const existing = loadItems();
-      const existingIds = new Set(existing.map(i => i.id));
       let imported = 0;
       data.forEach(item => {
-        if (item.name && item.expirationDate) {
-          if (!item.id || existingIds.has(item.id)) item.id = generateId();
-          if (!item.createdAt) item.createdAt = new Date().toISOString();
-          existing.push(item);
-          existingIds.add(item.id);
+        if (item && item.name && item.expirationDate) {
+          existing.push(sanitizeImportedItem(item));
           imported++;
         }
       });
@@ -276,15 +322,23 @@ const Store = (() => {
     for (let i = 1; i < lines.length; i++) {
       const values = parseCSVLine(lines[i]);
       if (values.length < headers.length) continue;
-      const item = { id: generateId(), createdAt: new Date().toISOString(), tags: [] };
+      const item = { createdAt: new Date().toISOString(), tags: [] };
       headers.forEach((h, idx) => {
+        // 'id' is deliberately ignored: sanitizeImportedItem always regenerates it.
+        if (h === 'id') return;
+        // Headers are lower-cased for matching; map back to the camelCase field.
+        const field = CSV_FIELDS[h];
+        if (!field) return;
         const val = values[idx]?.trim() || '';
-        if (h === 'quantity') item[h] = parseFloat(val) || 1;
-        else if (h === 'price') item[h] = val ? parseFloat(val) : null;
-        else if (h === 'tags') item[h] = val ? val.split(';') : [];
-        else item[h] = val || null;
+        if (field === 'quantity') item[field] = parseFloat(val) || 1;
+        else if (field === 'price') item[field] = val ? parseFloat(val) : null;
+        else if (field === 'tags') item[field] = val ? val.split(';') : [];
+        else item[field] = val || null;
       });
-      if (item.name && item.expirationDate) { items.push(item); imported++; }
+      if (item.name && item.expirationDate) {
+        items.push(sanitizeImportedItem(item));
+        imported++;
+      }
     }
     saveItems(items);
     return imported;

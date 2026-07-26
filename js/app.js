@@ -222,24 +222,27 @@ const App = (() => {
     const days = Store.daysUntilExpiration(item.expirationDate);
     let expiryText = days < 0 ? `Expired ${Math.abs(days)}d ago` :
       days === 0 ? 'Today!' : days === 1 ? 'Tomorrow' : `${days} days`;
-    const categoryLabel = Config.getCategoryLabel(item.category);
-    const locationLabel = Config.getLocationLabel(item.location);
-    const unitAbbr = Config.getUnitAbbr(item.unit || 'pieces');
-    const qtyDisplay = item.quantity !== 1 ? `${item.quantity} ${unitAbbr}` : '';
+    // Config label getters fall back to the raw key, and imported items may
+    // carry arbitrary keys, so escape these before they reach innerHTML.
+    const categoryLabel = escapeHtml(Config.getCategoryLabel(item.category));
+    const locationLabel = escapeHtml(Config.getLocationLabel(item.location));
+    const unitAbbr = escapeHtml(Config.getUnitAbbr(item.unit || 'pieces'));
+    const itemId = escapeAttr(item.id);
+    const qtyDisplay = item.quantity !== 1 ? `${escapeHtml(item.quantity)} ${unitAbbr}` : '';
     const isLowStock = item.lowStockThreshold && item.quantity <= item.lowStockThreshold;
     const isBulk = BulkOps.isBulkMode();
     const isSelected = isBulk && BulkOps.isSelected(item.id);
     const tagsHtml = (item.tags || []).slice(0, 3).map(t =>
       `<span class="item-mini-tag">${escapeHtml(t)}</span>`).join('');
     const checkbox = isBulk ?
-      `<input type="checkbox" class="bulk-checkbox" data-id="${item.id}" ${isSelected ? 'checked' : ''}>` : '';
+      `<input type="checkbox" class="bulk-checkbox" data-id="${itemId}" ${isSelected ? 'checked' : ''}>` : '';
     const quickActions = !isBulk ? `<div class="item-quick-actions">
-      <button class="quick-btn quick-use" data-action="use" data-id="${item.id}" title="Mark as Used">✓</button>
-      <button class="quick-btn quick-waste" data-action="waste" data-id="${item.id}" title="Throw Away">🗑</button>
+      <button class="quick-btn quick-use" data-action="use" data-id="${itemId}" title="Mark as Used">✓</button>
+      <button class="quick-btn quick-waste" data-action="waste" data-id="${itemId}" title="Throw Away">🗑</button>
     </div>` : '';
 
     if (viewMode === 'list') {
-      return `<div class="item-row status-${status} ${isSelected ? 'selected' : ''}" data-id="${item.id}">
+      return `<div class="item-row status-${status} ${isSelected ? 'selected' : ''}" data-id="${itemId}">
         ${checkbox}
         <div class="item-row-name">${escapeHtml(item.name)} ${isLowStock ? '<span class="low-stock-badge">low</span>' : ''}</div>
         <div class="item-row-meta">
@@ -252,7 +255,7 @@ const App = (() => {
         ${quickActions}
       </div>`;
     }
-    return `<div class="item-card status-${status} ${isSelected ? 'selected' : ''}" data-id="${item.id}">
+    return `<div class="item-card status-${status} ${isSelected ? 'selected' : ''}" data-id="${itemId}">
       ${checkbox}
       <div class="item-card-header">
         <span class="item-name">${escapeHtml(item.name)} ${isLowStock ? '<span class="low-stock-badge">low</span>' : ''}</span>
@@ -620,13 +623,13 @@ const App = (() => {
     let html = '';
     Object.entries(grouped).forEach(([cat, catItems]) => {
       html += `<div class="shopping-group">
-        <h3 class="shopping-group-header">${Config.getCategoryLabel(cat)}</h3>
+        <h3 class="shopping-group-header">${escapeHtml(Config.getCategoryLabel(cat))}</h3>
         <div class="shopping-items">`;
       catItems.forEach(item => {
-        html += `<div class="shopping-item ${item.checked ? 'checked' : ''}" data-id="${item.id}">
+        html += `<div class="shopping-item ${item.checked ? 'checked' : ''}" data-id="${escapeAttr(item.id)}">
           <input type="checkbox" class="shopping-check" ${item.checked ? 'checked' : ''}>
           <span class="shopping-name">${escapeHtml(item.name)}</span>
-          <span class="shopping-qty">${item.quantity > 1 ? item.quantity + ' ' + Config.getUnitAbbr(item.unit) : ''}</span>
+          <span class="shopping-qty">${item.quantity > 1 ? escapeHtml(item.quantity + ' ' + Config.getUnitAbbr(item.unit)) : ''}</span>
           <button class="shopping-purchase" title="Add to pantry">🥕</button>
           <button class="shopping-delete" title="Remove">×</button>
         </div>`;
@@ -852,10 +855,10 @@ const App = (() => {
           ${dateLabel} — ${label} (${items.length})
         </div>
         <div class="weekly-day-items">
-          ${items.map(item => `<div class="weekly-item" data-id="${item.id}">
+          ${items.map(item => `<div class="weekly-item" data-id="${escapeAttr(item.id)}">
             <div><span class="weekly-item-name">${escapeHtml(item.name)}</span>
-              <span class="weekly-item-loc">${Config.getLocationLabel(item.location)}</span></div>
-            <span class="weekly-item-qty">${item.quantity > 1 ? item.quantity + ' ' + Config.getUnitAbbr(item.unit) : ''}</span>
+              <span class="weekly-item-loc">${escapeHtml(Config.getLocationLabel(item.location))}</span></div>
+            <span class="weekly-item-qty">${item.quantity > 1 ? escapeHtml(item.quantity + ' ' + Config.getUnitAbbr(item.unit)) : ''}</span>
           </div>`).join('')}
         </div>
       </div>`;
@@ -1024,7 +1027,7 @@ const App = (() => {
         <div class="bar-chart">
           ${mostWasted.map(([cat, count]) => `
             <div class="bar-chart-row">
-              <span class="bar-chart-label">${Config.getCategoryLabel(cat)}</span>
+              <span class="bar-chart-label">${escapeHtml(Config.getCategoryLabel(cat))}</span>
               <div class="bar-chart-bar" style="width: ${(count / max) * 100}%"></div>
               <span class="bar-chart-value">${count}</span>
             </div>`).join('')}
@@ -1325,8 +1328,8 @@ const App = (() => {
     document.getElementById('btn-profile').textContent = active.avatar;
     let html = '<div class="profiles-list">';
     profiles.forEach(p => {
-      html += `<div class="profile-item ${p.id === active.id ? 'active' : ''}" data-id="${p.id}">
-        <span class="profile-avatar" style="background: ${p.color}">${p.avatar}</span>
+      html += `<div class="profile-item ${p.id === active.id ? 'active' : ''}" data-id="${escapeAttr(p.id)}">
+        <span class="profile-avatar" style="background: ${escapeAttr(p.color)}">${escapeHtml(p.avatar)}</span>
         <span class="profile-name">${escapeHtml(p.name)}</span>
         ${p.id === active.id ? '<span class="profile-active-tag">Active</span>' : '<button class="btn btn-sm btn-secondary profile-switch">Switch</button>'}
         ${profiles.length > 1 && p.id !== 'default' ? '<button class="btn btn-sm btn-danger profile-delete">×</button>' : ''}
