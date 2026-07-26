@@ -1289,9 +1289,12 @@ const App = (() => {
   }
 
   function checkAndCelebrate() {
-    if (!Config.getSetting('celebrationsEnabled')) return;
-    const newly = Achievements.checkAchievements();
-    if (newly.length > 0) newly.forEach((a, i) => setTimeout(() => showCelebration(a), i * 3000));
+    // Catch unlocks derived purely from store state, then drain everything
+    // queued (including unlocks already detected inside recordEvent).
+    Achievements.checkAchievements();
+    const newly = Achievements.drainCelebrations();
+    if (!Config.getSetting('celebrationsEnabled') || newly.length === 0) return;
+    newly.forEach((a, i) => setTimeout(() => showCelebration(a), i * 3000));
   }
 
   function showCelebration(achievement) {

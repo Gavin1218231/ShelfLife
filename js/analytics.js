@@ -151,14 +151,15 @@ const Analytics = (() => {
     return log.filter(e => new Date(e[dateField]) >= cutoff);
   }
 
+  // One snapshot per calendar day: init() runs on every page load, so appending
+  // unconditionally would stack duplicate same-date entries and skew trends.
   function saveSnapshot() {
     const history = loadHistory();
-    const stats = Store.getStats();
-    history.push({
-      date: new Date().toISOString().split('T')[0],
-      ...stats,
-      value: Store.getTotalValue(),
-    });
+    const today = new Date().toISOString().split('T')[0];
+    const snapshot = { date: today, ...Store.getStats(), value: Store.getTotalValue() };
+    const idx = history.findIndex(h => h.date === today);
+    if (idx >= 0) history[idx] = snapshot;
+    else history.push(snapshot);
     if (history.length > 365) history.splice(0, history.length - 365);
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
   }

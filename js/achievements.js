@@ -82,6 +82,11 @@ const Achievements = (() => {
     return state;
   }
 
+  // Unlocks can be detected by whoever calls checkAchievements() first — often
+  // recordEvent() — so newly unlocked badges are queued here and drained by the
+  // UI. Without this the second caller sees nothing new and no celebration runs.
+  let pendingCelebrations = [];
+
   function checkAchievements() {
     const state = loadState();
     const newlyUnlocked = [];
@@ -92,8 +97,17 @@ const Achievements = (() => {
         newlyUnlocked.push(def);
       }
     });
-    if (newlyUnlocked.length > 0) saveState(state);
+    if (newlyUnlocked.length > 0) {
+      saveState(state);
+      pendingCelebrations.push(...newlyUnlocked);
+    }
     return newlyUnlocked;
+  }
+
+  function drainCelebrations() {
+    const out = pendingCelebrations;
+    pendingCelebrations = [];
+    return out;
   }
 
   function getAll() {
@@ -180,7 +194,7 @@ const Achievements = (() => {
   return {
     DEFINITIONS,
     recordEvent, recordCheckIn,
-    checkAchievements, getAll, getUnlocked, getLocked,
+    checkAchievements, drainCelebrations, getAll, getUnlocked, getLocked,
     getInventoryHealthScore, getLevel, getXpToNextLevel,
     loadState,
     getActiveChallenges, updateChallenge,
